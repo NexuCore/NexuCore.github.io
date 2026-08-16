@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Message</title>
+  <style>
+    /* Reset & Base Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      color: #ffffff;
+      cursor: pointer; /* Indicates user can click to enable audio */
+    }
+
+    /* Fullscreen Background Video (Muted) */
+    .bg-video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: -2;
+    }
+
+    /* Gradient Overlay to Ensure Contrast Everywhere */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.55) 100%);
+      z-index: -1;
+    }
+
+    /* Invisible Message Container */
+    .message-card {
+      max-width: 750px;
+      width: 85%;
+      padding: 20px;
+      text-align: center;
+      animation: fadeIn 1.2s ease-out;
+    }
+
+    /* High-Contrast Readable Text */
+    .message-card p {
+      font-size: 1.5rem;
+      line-height: 1.8;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+      white-space: pre-line;
+      color: #ffffff;
+      /* Multiple text shadows ensure visibility on bright white/light video backgrounds */
+      text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 12px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .message-card b {
+      font-size: 1.5rem;
+      line-height: 1.8;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: pre-line;
+      color: #ffffff;
+      /* Multiple text shadows ensure visibility on bright white/light video backgrounds */
+      text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 12px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .message-card l {
+      font-size: 1.5rem;
+      line-height: 1.8;
+      font-weight: 200;
+      letter-spacing: 0.5px;
+      white-space: pre-line;
+      color: #ffffff;
+      /* Multiple text shadows ensure visibility on bright white/light video backgrounds */
+      text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 12px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Smooth Entrance Animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(15px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Video (0 sound) -->
+  <video class="bg-video" autoplay loop muted playsinline>
+    <source src="https://nexucore.github.io/video2.mp4" type="video/mp4">
+  </video>
+
+  <!-- Dark Overlay -->
+  <div class="overlay"></div>
+
+  <!-- Message Container -->
+  <div class="message-card">
+    <p>I just wanna say something important to the people who are in that group chat (They know which group chat I am talking to.), can we stop? Like stop sending death threats or just start arguing what I put in my profile? I also do somethings wrong as well, I agree with that as well. But just sending death threats is too far. WAY OFF.</p>
+    <b>Thank you.</b>
+  </div>
+
+  <script>
+    // Web Audio API for Low-Volume Looping Audio + Reverb Effect
+    let audioCtx;
+
+    function initAudio() {
+      if (audioCtx) return;
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Fetch the audio file
+      fetch('https://nexucore.github.io/birds.mp3')
+        .then(response => response.arrayBuffer())
+        .then(data => audioCtx.decodeAudioData(data))
+        .then(buffer => {
+          // 1. Create Audio Source
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.loop = true;
+
+          // 2. Create Low Volume Control (20% volume)
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.value = 0.2;
+
+          // 3. Synthesize Reverb Impulse Response
+          const convolver = audioCtx.createConvolver();
+          const rate = audioCtx.sampleRate;
+          const length = rate * 2.5; // 2.5 second reverb tail
+          const impulse = audioCtx.createBuffer(2, length, rate);
+          const left = impulse.getChannelData(0);
+          const right = impulse.getChannelData(1);
+
+          for (let i = 0; i < length; i++) {
+            const decay = Math.exp(-i / (rate * 0.5));
+            left[i] = (Math.random() * 2 - 1) * decay;
+            right[i] = (Math.random() * 2 - 1) * decay;
+          }
+          convolver.buffer = impulse;
+
+          // 4. Connect Audio Pipeline: Source -> Gain -> Reverb + Dry -> Output
+          source.connect(gainNode);
+          
+          // Blend dry and reverberated signal
+          gainNode.connect(audioCtx.destination);
+          gainNode.connect(convolver);
+          convolver.connect(audioCtx.destination);
+
+          source.start(0);
+        })
+        .catch(err => console.error("Audio failed to load:", err));
+    }
+
+    // Modern browsers require a user interaction to start audio
+    window.addEventListener('click', initAudio, { once: true });
+    window.addEventListener('touchstart', initAudio, { once: true });
+  </script>
+
+</body>
+</html>
